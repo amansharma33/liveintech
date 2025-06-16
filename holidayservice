@@ -1,0 +1,55 @@
+
+// HolidayService.swift
+import Foundation
+
+// MARK: - Custom Error Types
+// Define APIError here, outside of any class or struct,
+// so it's accessible throughout the file (and potentially other files).
+enum APIError: Error, LocalizedError {
+    case invalidURL
+    case invalidResponse(statusCode: Int)
+    case decodingError(Error) // Make sure to keep this if you plan to throw it
+    case unknown
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "The URL provided was invalid."
+        case .invalidResponse(let statusCode):
+            return "Invalid response from server. Status code: \(statusCode)"
+        case .decodingError(let error):
+            return "Failed to decode data: \(error.localizedDescription)"
+        case .unknown:
+            return "An unknown error occurred."
+        }
+    }
+}
+
+// MARK: - HolidayService
+// Now, HolidayService can see and use APIError
+class HolidayService {
+
+    func fetchIndianHolidays(year: Int) async throws -> [Holiday] {
+        let urlString = "https://date.nager.at/api/v3/publicholidays/2025/AT/\(year)/IN"
+        guard let url = URL(string: urlString) else {
+            throw APIError.invalidURL // This will now work
+        }
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.invalidResponse(statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1)
+        }
+
+        // ... (rest of your code, including JSON printing and decoding)
+        let decoder = JSONDecoder()
+        do {
+            let holidays = try decoder.decode([Holiday].self, from: data)
+            return holidays
+        } catch {
+            print("Decoding Error: \(error)")
+            throw APIError.decodingError(error) // This will also work
+        }
+    }
+}
